@@ -76,7 +76,7 @@ static int __init rot_init(void) {
 		printk(KERN_ALERT "ROT: Could not register a major number!\n");
 		return majorNum;
 	}
-	printk(KERN_INFO "ROT: Succesfully registered with major number %d.\n", majorNum);
+	printk(KERN_INFO "ROT: Registered with major number %d.\n", majorNum);
 
 	// Register the device class.
 	rotClass = class_create(THIS_MODULE, CLASS_NAME);
@@ -85,17 +85,17 @@ static int __init rot_init(void) {
 		printk(KERN_ALERT "ROT: Could not register the device class!\n");
 		return PTR_ERR(rotDevice);
 	}
-	printk(KERN_INFO "ROT: Succesfully registered the device class.\n");
+	printk(KERN_INFO "ROT: Registered the device class.\n");
 
 	// Register the device driver.
 	rotDevice = device_create(rotClass, NULL, MKDEV(majorNum, 0), NULL, DEVICE_NAME);
 	if (IS_ERR(rotDevice)) {
 		class_destroy(rotClass);
 		unregister_chrdev(majorNum, DEVICE_NAME);
-		printk(KERN_ALERT "ROT: Could not create the device!\n");
+		printk(KERN_ALERT "ROT: Could not create the device.\n");
 		return PTR_ERR(rotDevice);
 	}
-	printk(KERN_INFO "ROT: Succesfully created the device to /dev/%s.\n", DEVICE_NAME);
+	printk(KERN_INFO "ROT: Created the device to /dev/%s.\n", DEVICE_NAME);
 	return 0;
 }
 
@@ -110,7 +110,7 @@ static void __exit rot_exit(void) {
 // Function which will be executed on device open.
 static int rot_open(struct inode* inodep, struct file* filep) {
 	openCount++;
-	printk(KERN_INFO "ROT: Succesfully opened the device for the %dth time.\n", openCount);
+	printk(KERN_INFO "ROT: Opened the device for the %dth time.\n", openCount);
 	return 0;
 }
 
@@ -119,7 +119,7 @@ static ssize_t rot_read(struct file* filep, char* buffer, size_t len, loff_t* of
 	int errorCount = 0;
 	errorCount = copy_to_user(buffer, msg, msgSize);
 	if (errorCount == 0) {
-		printk(KERN_INFO "ROT: Succesfully sent %d characters to user.\n", msgSize);
+		printk(KERN_INFO "ROT: Sent %d characters to user.\n", msgSize);
 		msgSize = 0;
 		return(0);
 	} else {
@@ -149,7 +149,7 @@ static ssize_t rot_write(struct file* filep, const char* buffer, size_t len, lof
 // inodep is a pointer to an inode object (see linux/fs.h).
 // filep is a pointer to a file objec (see linux/fs.h).
 static int rot_release(struct inode* inodep, struct file* filep) {
-	printk(KERN_INFO "ROT: Device closed succesfully!\n");
+	printk(KERN_INFO "ROT: Device closed succesfully.\n");
 	return 0;
 } 
 
