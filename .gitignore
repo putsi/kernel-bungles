@@ -1,3 +1,6 @@
+# Test binaries
+test
+
 # Object files
 *.o
 *.ko
