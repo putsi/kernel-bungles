@@ -11,15 +11,15 @@
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("putsi");
-MODULE_DESCRIPTION("Simple character device module which rotates given message by n characters.");
+MODULE_DESCRIPTION("Simple character device module which performs ROT-n to given message.");
 MODULE_VERSION("1.1");
 
 // How many times a character will be rotated for.
 static int rotations = 13;
-// rotations is int pointer and can be read but cannot be modified.
+// rotations is int and can be read but cannot be modified.
 module_param(rotations, int, S_IRUGO);
 // rotations parameter description.
-MODULE_PARM_DESC(rotations, "How many times a character will be rotated (default is 13 as in ROT13).");
+MODULE_PARM_DESC(rotations, "How many times a character will be rotated (default is ROT13).");
 
 // Device number will be stored here.
 static int majorNum;
@@ -57,6 +57,7 @@ static void rotate(void) {
 		if (c == '\0') {
 			return;
 		}
+		// Rotate current character by specified amount of characters.
 		if (isalpha(c)) {
 			char alpha = islower(c) ? 'a' : 'A';
 			c = (c - alpha + rotations) % 26 + alpha;
@@ -135,13 +136,13 @@ static ssize_t rot_write(struct file* filep, const char* buffer, size_t len, lof
 	// Write characters in buffer to the message.
 	sprintf(msg, "%s", buffer);
 	msgSize = strlen(msg);
-
+	printk(KERN_INFO "ROT: Received %d characters to device!\n", msgSize);
+	
 	// Lets rotate the message.
 	printk(KERN_INFO "ROT: Rotating message by %d characters.", rotations);
 	rotate();
 
-	printk(KERN_INFO "ROT: Received %d characters to device!\n", (int)len);
-	return len;
+	return msgSize;
 }
 
 // Function which will be used when the device is closed by the userspace user.
