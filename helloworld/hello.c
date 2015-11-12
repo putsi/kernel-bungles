@@ -3,7 +3,7 @@
 #include <linux/kernel.h>
 
 MODULE_LICENSE("MIT");
-MODULE_AUTHOR("PUTSI");
+MODULE_AUTHOR("putsi");
 MODULE_DESCRIPTION("Hello world module with simple user parameter");
 MODULE_VERSION("1.0");
 
