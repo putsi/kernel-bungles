@@ -15,7 +15,7 @@ MODULE_DESCRIPTION("Simple character device module which rotates given message b
 MODULE_VERSION("1.1");
 
 // How many times a character will be rotated for.
-static int *rotations = 13;
+static int rotations = 13;
 // rotations is int pointer and can be read but cannot be modified.
 module_param(rotations, int, S_IRUGO);
 // rotations parameter description.
@@ -59,7 +59,7 @@ static void rotate(void) {
 		}
 		if (isalpha(c)) {
 			char alpha = islower(c) ? 'a' : 'A';
-			c = (c - alpha + 13) % 26 + alpha;
+			c = (c - alpha + rotations) % 26 + alpha;
 		}
 		msg[i] = c;
 	}
@@ -113,6 +113,7 @@ static int rot_open(struct inode* inodep, struct file* filep) {
 	return 0;
 }
 
+// Function which will be used when data is read from the character device.
 static ssize_t rot_read(struct file* filep, char* buffer, size_t len, loff_t* offset) {
 	int errorCount = 0;
 	errorCount = copy_to_user(buffer, msg, msgSize);
@@ -139,7 +140,7 @@ static ssize_t rot_write(struct file* filep, const char* buffer, size_t len, lof
 	printk(KERN_INFO "ROT: Rotating message by %d characters.", rotations);
 	rotate();
 
-	printk(KERN_INFO "ROT: Received %d characters to device!\n", len);
+	printk(KERN_INFO "ROT: Received %d characters to device!\n", (int)len);
 	return len;
 }
 
