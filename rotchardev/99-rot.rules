@@ -1,2 +1,2 @@
 # UDEV rules for rot-n character device driver.
-KERNEL=="rot", SUBSYSTEM="rot", MODE="0666"
+KERNEL=="rot", SUBSYSTEM=="rot", MODE="0666"
