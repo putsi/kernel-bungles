@@ -4,6 +4,7 @@
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/fs.h>
+#include <linux/mutex.h>
 #include <asm/uaccess.h>
 #define DEVICE_NAME "rot"
 #define CLASS_NAME "rot"
@@ -46,6 +47,9 @@ static struct file_operations fops =
 	.write = rot_write,
 	.release = rot_release,
 };
+
+//Lets declare a mutex which can be used to avoid race conditions.
+static DEFINE_MUTEX(rot_mutex);
 
 // Rotation function.
 static void rotate(void) {
@@ -96,6 +100,10 @@ static int __init rot_init(void) {
 		return PTR_ERR(rotDevice);
 	}
 	printk(KERN_INFO "ROT: Created the device to /dev/%s.\n", DEVICE_NAME);
+
+	// Initialize our mutex.
+	mutex_init(&rot_mutex);
+
 	return 0;
 }
 
@@ -104,11 +112,18 @@ static void __exit rot_exit(void) {
 	device_destroy(rotClass, MKDEV(majorNum, 0));
 	class_destroy(rotClass);
 	unregister_chrdev(majorNum, DEVICE_NAME);
+	mutex_destroy(&rot_mutex);
 	printk(KERN_INFO "ROT: ROT LKM unloaded successfully.\n");
 }
 
 // Function which will be executed on device open.
 static int rot_open(struct inode* inodep, struct file* filep) {
+	// Make sure that the device is not already in use.
+	if (!mutex_trylock(&rot_mutex)) {
+		printk(KERN_ALERT "ROT: Device is in use by another process!");
+		return -EBUSY;
+	}
+
 	openCount++;
 	printk(KERN_INFO "ROT: Opened the device for the %dth time.\n", openCount);
 	return 0;
@@ -137,7 +152,7 @@ static ssize_t rot_write(struct file* filep, const char* buffer, size_t len, lof
 	sprintf(msg, "%s", buffer);
 	msgSize = strlen(msg);
 	printk(KERN_INFO "ROT: Received %d characters to device!\n", msgSize);
-	
+
 	// Lets rotate the message.
 	printk(KERN_INFO "ROT: Rotating message by %d characters.", rotations);
 	rotate();
@@ -149,9 +164,12 @@ static ssize_t rot_write(struct file* filep, const char* buffer, size_t len, lof
 // inodep is a pointer to an inode object (see linux/fs.h).
 // filep is a pointer to a file objec (see linux/fs.h).
 static int rot_release(struct inode* inodep, struct file* filep) {
+	// Release the mutex so that the device can be used by another users/processes.
+	mutex_unlock(&rot_mutex);
+
 	printk(KERN_INFO "ROT: Device closed succesfully.\n");
 	return 0;
-} 
+}
 
 // Specify module initialization and cleanup functions.
 module_init(rot_init);
