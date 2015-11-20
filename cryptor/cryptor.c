@@ -1,31 +1,33 @@
+#include <linux/kernel.h>
+#include <linux/types.h>
 #include <linux/ctype.h>
-#include <linux/init.h>
 #include <linux/module.h>
 #include <linux/device.h>
-#include <linux/kernel.h>
+#include <linux/init.h>
 #include <linux/fs.h>
+#include <linux/string.h>
 #include <asm/uaccess.h>
-#define DEVICE_NAME "cry"
-#define CLASS_NAME "cryptor"
-#define MESSAGE_SIZE 2048
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("putsi");
-MODULE_DESCRIPTION("Simple character device module which performs symmetric encryptions/decryptions.");
+MODULE_DESCRIPTION("Character device that encrypts/decrypts given input by XORing with RC4-stream.");
 MODULE_VERSION("1.1");
 
-// Encryption key..
+#define MESSAGE_MAX_SIZE 1024
+#define DEVICE_NAME "cry"
+#define CLASS_NAME "cryptor"
+
+// Encryption key.
 static char *encryptionKey = NULL;
-// Encryption key is char pointer and ... TODO: Fix permissions
-module_param(encryptionKey, charp, 0600);
+// Encryption key is char pointer that can be read and write by root.
+module_param(encryptionKey, charp, S_IRWXU);
 // Encryption key parameter description.
 MODULE_PARM_DESC(encryptionKey, "Encryption key that will be used in cryptography operations.");
-
 
 // Device number will be stored here.
 static int majorNum;
 // Initialize memory for the message given by user.
-static char msg[MESSAGE_SIZE] = {0};
+static char msg[MESSAGE_MAX_SIZE] = {0};
 // Variable for storing length of the string.
 static short msgSize;
 
@@ -38,6 +40,9 @@ static int cry_release(struct inode*, struct file*);
 static ssize_t cry_read(struct file*, char*, size_t, loff_t*);
 static ssize_t cry_write(struct file*, const char*, size_t, loff_t*);
 
+// Function prototype for the rc4 based encryption.
+void rc4(unsigned char* key, unsigned char* msg);
+
 // Linux file structure operations which the character device will support.
 static struct file_operations fops =
 {
@@ -47,55 +52,36 @@ static struct file_operations fops =
 	.release = cry_release,
 };
 
-// TODO Encrypt/decrypt
-static void encrypt(void) {
-	// Loop through each character.
-	int i = 0;
-	for(i = 0; i < msgSize; i++) {
-		char c = msg[i];
-		// If currect character is end of string, return.
-		if (c == '\0') {
-			return;
-		}
-		// Rotate current character by specified amount of characters.
-		if (isalpha(c)) {
-			char alpha = islower(c) ? 'a' : 'A';
-			c = (c - alpha + 13) % 26 + alpha;
-		}
-		msg[i] = c;
-	}
-}
-
 // Function which will be executed at module initialization time.
 static int __init cry_init(void) {
-	printk(KERN_INFO "CRYPTOR: Starting Crypto-module as LKM.\n");
+	printk(KERN_INFO "cryptor: Starting Crypto-module as LKM.\n");
 
 	// Try to get the major number dynamically if possible.
 	majorNum = register_chrdev(0, DEVICE_NAME, &fops);
 	if (majorNum < 0) {
-		printk(KERN_ALERT "CRYPTOR: Could not register a major number!\n");
+		printk(KERN_ALERT "cryptor: Could not register a major number!\n");
 		return majorNum;
 	}
-	printk(KERN_INFO "CRYPTOR: Registered with major number %d.\n", majorNum);
+	printk(KERN_INFO "cryptor: Registered with major number %d.\n", majorNum);
 
 	// Register the device class.
 	cryClass = class_create(THIS_MODULE, CLASS_NAME);
 	if (IS_ERR(cryClass)) {
 		unregister_chrdev(majorNum, DEVICE_NAME);
-		printk(KERN_ALERT "CRYPTOR: Could not register the device class!\n");
+		printk(KERN_ALERT "cryptor: Could not register the device class!\n");
 		return PTR_ERR(cryDevice);
 	}
-	printk(KERN_INFO "CRYPTOR: Registered the device class.\n");
+	printk(KERN_INFO "cryptor: Registered the device class.\n");
 
 	// Register the device driver.
 	cryDevice = device_create(cryClass, NULL, MKDEV(majorNum, 0), NULL, DEVICE_NAME);
 	if (IS_ERR(cryDevice)) {
 		class_destroy(cryClass);
 		unregister_chrdev(majorNum, DEVICE_NAME);
-		printk(KERN_ALERT "CRYPTOR: Could not create the device.\n");
+		printk(KERN_ALERT "cryptor: Could not create the device.\n");
 		return PTR_ERR(cryDevice);
 	}
-	printk(KERN_INFO "CRYPTOR: Created the device to /dev/%s.\n", DEVICE_NAME);
+	printk(KERN_INFO "cryptor: Created the device to /dev/%s.\n", DEVICE_NAME);
 
 	return 0;
 }
@@ -105,12 +91,16 @@ static void __exit cry_exit(void) {
 	device_destroy(cryClass, MKDEV(majorNum, 0));
 	class_destroy(cryClass);
 	unregister_chrdev(majorNum, DEVICE_NAME);
-	printk(KERN_INFO "CRYPTOR: CRYPTOR LKM unloaded successfully.\n");
+	printk(KERN_INFO "cryptor: LKM unloaded successfully.\n");
 }
 
 // Function which will be executed on device open.
 static int cry_open(struct inode* inodep, struct file* filep) {
-	printk(KERN_INFO "CRYTOR: User opened the device.\n");
+	if (encryptionKey == NULL) {
+		printk(KERN_NOTICE "cryptor: User tried to use the device when there was no encryption key present.");
+		return -EINVAL;
+	}
+	printk(KERN_INFO "cryptor: User opened the device.\n");
 	return 0;
 }
 
@@ -119,12 +109,12 @@ static ssize_t cry_read(struct file* filep, char* buffer, size_t len, loff_t* of
 	int errorCount = 0;
 	errorCount = copy_to_user(buffer, msg, msgSize);
 	if (errorCount == 0) {
-		printk(KERN_INFO "CRYPTOR: Sent %d characters to user.\n", msgSize);
+		printk(KERN_INFO "cryptor: Sent %d characters to user.\n", msgSize);
 		msgSize = 0;
 		return(0);
 	} else {
-		printk(KERN_INFO "CRYPTOR: Could not send %d characters to user!\n", msgSize);
-		return -EFAULT;
+		printk(KERN_ALERT "cryptor: Could not send %d characters to user!\n", msgSize);
+		return -EIO;
 	}
 }
 
@@ -136,11 +126,11 @@ static ssize_t cry_write(struct file* filep, const char* buffer, size_t len, lof
 	// Write characters in buffer to the message.
 	sprintf(msg, "%s", buffer);
 	msgSize = strlen(msg);
-	printk(KERN_INFO "CRYPTOR: Received %d characters to device!\n", msgSize);
+	printk(KERN_INFO "cryptor: Received %d characters to device!\n", msgSize);
 
-	// Lets encrypt/decrypt the message. TODO encryption&decryption check and different methods?
-	printk(KERN_INFO "CRYPTOR: Encrypting/decrypting the message.");
-	encrypt();
+	// Lets encrypt/decrypt the message.
+	printk(KERN_INFO "cryptor: Encrypting/decrypting the message.");
+	rc4(encryptionKey, msg);
 
 	return msgSize;
 }
@@ -149,10 +139,58 @@ static ssize_t cry_write(struct file* filep, const char* buffer, size_t len, lof
 // inodep is a pointer to an inode object (see linux/fs.h).
 // filep is a pointer to a file objec (see linux/fs.h).
 static int cry_release(struct inode* inodep, struct file* filep) {
-	printk(KERN_INFO "CRYPTOR: Device closed succesfully.\n");
+	printk(KERN_INFO "cryptor: Device closed succesfully.\n");
 	return 0;
 }
 
 // Specify module initialization and cleanup functions.
 module_init(cry_init);
 module_exit(cry_exit);
+
+/*
+    Following public domain RC4-implementation is from
+    https://github.com/B-Con/crypto-algorithms
+*/
+
+void rc4_key_setup(unsigned char state[], const unsigned char key[], int len)
+{
+        int i;
+        int j;
+        for (i = 0; i < 256; ++i)
+                state[i] = i;
+        for (i = 0, j = 0; i < 256; ++i) {
+                unsigned char t = state[i];
+                j = (j + state[i] + key[i % len]) % 256;
+                state[i] = state[j];
+                state[j] = t;
+        }
+}
+
+void rc4_generate_stream(unsigned char state[], unsigned char out[], size_t len)
+{
+        int i;
+	int j;
+        size_t idx;
+        for (idx = 0, i = 0, j = 0; idx < len; ++idx)  {
+                unsigned char t = state[i];
+                i = (i + 1) % 256;
+                j = (j + state[i]) % 256;
+                state[i] = state[j];
+                state[j] = t;
+                out[idx] = state[(state[i] + state[j]) % 256];
+        }
+}
+
+void rc4(unsigned char* key, unsigned char* msg) {
+        unsigned char state[256];
+        unsigned char buf[MESSAGE_MAX_SIZE];
+        size_t i;
+
+        rc4_key_setup(state, key, strlen(key));
+        rc4_generate_stream(state, buf, MESSAGE_MAX_SIZE);
+        for (i = 0; i < strlen(msg); i++) {
+                msg[i] ^= buf[i];
+        }
+}
+
+

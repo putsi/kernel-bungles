@@ -8,8 +8,9 @@ clean:
 	rm test
 
 install:
-	cp 99-cryptor.rules /etc/udev/rules.d/99-cryptor.rules
-	insmod cryptor.ko
+	@read -p "Enter initial encryption key: " encKey; \
+	cp 99-cryptor.rules /etc/udev/rules.d/99-cryptor.rules; \
+	insmod cryptor.ko encryptionKey=$$encKey
 uninstall:
 	rmmod cryptor
 	rm /etc/udev/rules.d/99-cryptor.rules

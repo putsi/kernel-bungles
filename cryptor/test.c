@@ -5,11 +5,21 @@
 #include <string.h>
 
 #define BUFFER_LEN 2048
-static char recvBuffer[BUFFER_LEN];
+
+static void print_buf(const unsigned char *buf, size_t buf_len, const char* footer)
+{
+	size_t i = 0;
+	for(i = 0; i < buf_len; ++i)
+	fprintf(stdout, "%02X%s", buf[i],
+		( i + 1 ) % 16 == 0 ? " " : " " );
+	printf("%s\n",footer);
+}
 
 int main() {
-	int ret, fd;
+	int ret, fd, i;
 	char msg[BUFFER_LEN];
+	char enc[BUFFER_LEN];
+	char dec[BUFFER_LEN];
         char key[BUFFER_LEN];
 	printf("Opening the cryptor device\n");
 	fd = open("/dev/cry", O_RDWR);
@@ -18,56 +28,48 @@ int main() {
 		return errno;
 	}
 
-	printf("Key for cryptography operations: ");
+	printf("String that will be encrypted&decrypted: ");
 	scanf("%[^\n]%*c", msg);
 	int msgLen = strlen(msg);
 	if (msgLen > BUFFER_LEN) {
 		printf("Too long msg, maximum size is %d", BUFFER_LEN);
 	}
 
-	printf("String that will be encrypted&decrypted: ");
-	scanf("%[^\n]%*c", msg);
-	msgLen = strlen(msg);
-	if (msgLen > BUFFER_LEN) {
-		printf("Too long msg, maximum size is %d", BUFFER_LEN);
-	}
-
-	printf("Writing string to device.\n");
 	ret = write(fd, msg, msgLen);
 	if (ret < 0) {
 		perror("Could not send the string to the device!");
 		return errno;
 	}
 
-	printf("Press any key to read the encrypted string from the device.\n");
-	getchar();
-
-	ret = read(fd, recvBuffer, BUFFER_LEN);
+	ret = read(fd, enc, BUFFER_LEN);
 	if (ret < 0) {
-		perror("Could not read the string from the device!");
+		perror("Could not read the binary from the device!");
 		return errno;
 	}
 
-	printf("Received encrypted message: [%s]\n", recvBuffer);
-	printf("\n");
-
-	printf("Writing encrypted string to device.\n");
-	ret = write(fd, recvBuffer, msgLen);
+	ret = write(fd, enc, msgLen);
 	if (ret < 0) {
 		perror("Could not send the string to the device!");
 		return errno;
 	}
 
-	printf("Press any key to read the decrypted string from the device.\n");
-	getchar();
-
-	ret = read(fd, recvBuffer, BUFFER_LEN);
+	ret = read(fd, dec, BUFFER_LEN);
 	if (ret < 0) {
 		perror("Could not read the string from the device!");
 		return errno;
 	}
 
-	printf("Received decrypted message: [%s]\n", recvBuffer);
+	print_buf(msg,msgLen, " <-- Original  message (HEX)");
+	print_buf(enc,msgLen, " <-- Encrypted message (HEX)");
+	print_buf(dec,msgLen, " <-- Decrypted message (HEX)");
+
+	printf("%s <-- Original  message\n",msg);
+	printf("%s <-- Encrypted message\n",enc);
+	printf("%s <-- Decrypted message\n",dec);
 	printf("\n");
+
+	printf("Setting new encryption key via IOCTL\n");
+	printf("TODO: Encryption and decryption again\n");
+
 	return 0;
 }
