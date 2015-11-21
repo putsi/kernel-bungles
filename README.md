@@ -5,4 +5,4 @@ helloworld - Simple helloworld kernel module which has single parameter and writ
 
 rotchardev - Simple character device kernel module which can be used to do ROT-n rotations to given string.
 
-encryptor - Character device kernel module for the purpose of symmetric encryption and decryption of text.
+cryptor - Character device kernel module for the purpose of symmetric (XOR+RC4) encryption and decryption of text.
