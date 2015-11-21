@@ -6,6 +6,7 @@
 #include <linux/init.h>
 #include <linux/fs.h>
 #include <linux/string.h>
+#include <linux/ioctl.h>
 #include <asm/uaccess.h>
 
 MODULE_LICENSE("GPL");
@@ -16,6 +17,9 @@ MODULE_VERSION("1.1");
 #define MESSAGE_MAX_SIZE 1024
 #define DEVICE_NAME "cry"
 #define CLASS_NAME "cryptor"
+
+#define IOCTL_SET_KEY 0
+#define IOCTL_GET_KEY 1
 
 // Encryption key.
 static char *encryptionKey = NULL;
@@ -39,6 +43,7 @@ static int cry_open(struct inode*, struct file*);
 static int cry_release(struct inode*, struct file*);
 static ssize_t cry_read(struct file*, char*, size_t, loff_t*);
 static ssize_t cry_write(struct file*, const char*, size_t, loff_t*);
+static long cry_ioctl(struct file *file, unsigned int cmd_in, unsigned long arg);
 
 // Function prototype for the rc4 based encryption.
 void rc4(unsigned char* key, unsigned char* msg);
@@ -50,6 +55,7 @@ static struct file_operations fops =
 	.read = cry_read,
 	.write = cry_write,
 	.release = cry_release,
+	.unlocked_ioctl = cry_ioctl,
 };
 
 // Function which will be executed at module initialization time.
@@ -133,6 +139,24 @@ static ssize_t cry_write(struct file* filep, const char* buffer, size_t len, lof
 	rc4(encryptionKey, msg);
 
 	return msgSize;
+}
+
+static long cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg) {
+	int ret_val = 0;
+	switch(ioctl_cmd){
+		case IOCTL_SET_KEY:
+			ret_val = copy_from_user(encryptionKey, (char *)arg, sizeof(encryptionKey));
+			printk(KERN_INFO "cryptor: User changed encryption key via IOCTL.\n");
+			break;
+		case IOCTL_GET_KEY:
+			ret_val = copy_to_user((char *) arg, encryptionKey, sizeof(encryptionKey));
+			printk(KERN_INFO "cryptor: Encryption key sent to user via IOCTL.\n");
+			break;
+		default:
+			printk(KERN_WARNING "cryptor: Received invalid IOCTL call (%d).\n", ioctl_cmd);
+			break;
+	}
+	return ret_val;
 }
 
 // Function which will be used when the device is closed by the userspace user.
