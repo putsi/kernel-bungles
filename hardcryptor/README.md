@@ -1,6 +1,9 @@
-# Loadable kernel module that provides RC4-cryptography
+# Loadable kernel module that provides [TODO]-cryptography
 
-Note: The implementation is very unsafe and contains multiple vulnerabilities.  A hardened version will be provided by the [hardcryptor-module](https://github.com/putsi/kernel-bungles/tree/master/hardcryptor).
+Note: This is a hardened version of the [cryptor-module](https://github.com/putsi/kernel-bungles/tree/master/cryptor).
+
+Following vulnerabilities have been fixed in this version:
+ * TODO
 
 ## Installing
 ```
