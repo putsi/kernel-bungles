@@ -1,5 +1,7 @@
 # Loadable kernel module that provides RC4-cryptography
 
+Note: This implementation is very unsecure as a hardened version will be provided by the hardcryptor-module.
+
 ## Installing
 ```
 sudo -s
@@ -12,7 +14,7 @@ make && make install
 ## Using
 Initial encryption key is set by the Makefile.
 Module creates a character device to /dev/cry, which encrypts or decrypts any data written into it.
-Encryption key can be changed with IOCTL-call 1 and retrieved with IOCTL-call 0.
+Encryption key can be changed with IOCTL-call 0 and retrieved with IOCTL-call 1.
 
 Usage example is provided by test-program which can be used with:
 ```
