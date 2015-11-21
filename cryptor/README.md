@@ -1,6 +1,6 @@
 # Loadable kernel module that provides RC4-cryptography
 
-Note: This implementation is very unsecure as a hardened version will be provided by the hardcryptor-module.
+Note: The implementation is very unsafe and contains multiple vulnerabilities.  A hardened version will be provided by the hardcryptor-module.
 
 ## Installing
 ```
