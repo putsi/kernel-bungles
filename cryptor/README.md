@@ -34,7 +34,7 @@ tail -n25 /var/log/kern.log
 ```
 
 ## Example
-### Standard output
+### Console
 ```
 $ insmod cryptor
 $ ./test
