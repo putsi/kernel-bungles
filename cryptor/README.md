@@ -36,6 +36,9 @@ tail -n25 /var/log/kern.log
 ## Example
 ### Standard output
 ```
+$ insmod cryptor
+$ ./test
+
 String that will be encrypted&decrypted: salainen lause
 
 73 61 6C 61 69 6E 65 6E 20 6C 61 75 73 65  <-- Original  message (HEX)
@@ -55,14 +58,11 @@ A1 A1 5B 28 0D 66 A2 16 1C 7B 03 07 56 2A  <-- Encrypted message (HEX)
 salainen lause <-- Original  message
 f�V* <-- Encrypted message
 salainen lause <-- Decrypted message
+
+$ rmmod cryptor
 ```
 ### Kernel log
 ```
-Dec  2 11:59:27 kali kernel: [41976.612746] cryptor: Starting Crypto-module as LKM.
-Dec  2 11:59:27 kali kernel: [41976.612749] cryptor: Registered with major number 250.
-Dec  2 11:59:27 kali kernel: [41976.612758] cryptor: Registered the device class.
-Dec  2 11:59:27 kali kernel: [41976.612790] cryptor: Created the device to /dev/cry.
-Dec  2 12:05:16 kali kernel: [42324.676897] cryptor: LKM unloaded successfully.
 Dec  2 12:05:18 kali kernel: [42327.506632] cryptor: Starting Crypto-module as LKM.
 Dec  2 12:05:18 kali kernel: [42327.506635] cryptor: Registered with major number 250.
 Dec  2 12:05:18 kali kernel: [42327.506686] cryptor: Registered the device class.
@@ -85,4 +85,5 @@ Dec  2 12:05:30 kali kernel: [42338.805161] cryptor: Encrypting/decrypting the m
 Dec  2 12:05:30 kali kernel: [42338.805165] cryptor: Sent 14 characters to user.
 Dec  2 12:05:30 kali kernel: [42338.805173] cryptor: Received invalid IOCTL call (6).
 Dec  2 12:05:30 kali kernel: [42338.805176] cryptor: Device closed succesfully.
+Dec  2 12:10:01 kali kernel: [42610.234653] cryptor: LKM unloaded successfully.
 ```
