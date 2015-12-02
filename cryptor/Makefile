@@ -10,7 +10,7 @@ clean:
 install:
 	@read -p "Enter initial encryption key: " encKey; \
 	cp 99-cryptor.rules /etc/udev/rules.d/99-cryptor.rules; \
-	insmod cryptor.ko encryptionKey=$$encKey
+	insmod cryptor.ko encryptionKey=$$encKey; \
         depmod -a
 uninstall:
 	rmmod cryptor
