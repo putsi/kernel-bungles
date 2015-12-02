@@ -1,56 +1,65 @@
+// Kernel headers, needed for e.g. KERN_ALERT.
 #include <linux/kernel.h>
+// Type definitions, needed for e.g. ssize_t.
 #include <linux/types.h>
-#include <linux/ctype.h>
+// Module headers, needed for various Kernel module-specific functions and globals.
 #include <linux/module.h>
+// Device headers, needed for managing a device.
 #include <linux/device.h>
-#include <linux/init.h>
+// File structure headers, needed for defining and creating a character device.
 #include <linux/fs.h>
-#include <linux/string.h>
-#include <linux/ioctl.h>
+// Uaccess-headers, needed for copying data between user space and Kernel space.
 #include <asm/uaccess.h>
 
+// Set the licence, author, version, and description of the module.
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("putsi");
+MODULE_AUTHOR("Jarmo Puttonen");
 MODULE_DESCRIPTION
     ("Character device that encrypts/decrypts given input by XORing with RC4-stream.");
-MODULE_VERSION("1.1");
+MODULE_VERSION("1.2");
 
+// Maximum size of message in a single write- or read-operation.
 #define MESSAGE_MAX_SIZE 1024
+// Device name which will be used in the file system (/dev/cry).
 #define DEVICE_NAME "cry"
+// Class name defines which class the module is specific to.
 #define CLASS_NAME "cryptor"
 
+// IOCTL-call values used for setting and getting the encryption key.
 #define IOCTL_SET_KEY 0
 #define IOCTL_GET_KEY 1
 
-// Encryption key.
 static char *encryptionKey = NULL;
-// Encryption key is char pointer that can be read and write by root.
+// Encryption key is char pointer (charp) that can be read and write by root (S_IRWXU).
 module_param(encryptionKey, charp, S_IRWXU);
-// Encryption key parameter description.
+// Encryption key parameter description for the module.
 MODULE_PARM_DESC(encryptionKey,
 		 "Encryption key that will be used in cryptography operations.");
 
-// Device number will be stored here.
+// Device major number maps the device file to the corresponding driver.
 static int majorNum;
-// Initialize memory for the message given by user.
+// Initialize memory for the message.
 static char msg[MESSAGE_MAX_SIZE] = { 0 };
 
 // Variable for storing length of the string.
 static short msgSize;
 
+// The basic device class.
 static struct class *cryClass = NULL;
+// The basic device structure.
 static struct device *cryDevice = NULL;
 
-// Function prototypes for the character driver.
+// Open is called when the user tries to open the character device file.
 static int cry_open(struct inode *, struct file *);
+// Release is called when a process closes the character device file.
 static int cry_release(struct inode *, struct file *);
+// Read is called when a process that has opened the character device file tries to read from it.
 static ssize_t cry_read(struct file *, char *, size_t, loff_t *);
+// Write is called when a process that has opened the character device file tries to write to it.
 static ssize_t cry_write(struct file *, const char *, size_t, loff_t *);
+// Ioctl is called when a process tries to do an ioctl call to the character device file.
 static long cry_ioctl(struct file *file, unsigned int cmd_in,
 		      unsigned long arg);
-
-// Function prototype for the rc4 based encryption.
-void rc4(unsigned char *key, unsigned char *msg);
 
 // Linux file structure operations which the character device will support.
 static struct file_operations fops = {
@@ -61,36 +70,41 @@ static struct file_operations fops = {
 	.unlocked_ioctl = cry_ioctl,
 };
 
-// Function which will be executed at module initialization time.
+// Function prototype for the rc4 based encryption.
+void rc4(unsigned char *key, unsigned char *msg);
+
+// This function will be executed at module initialization time.
 static int __init cry_init(void)
 {
 	printk(KERN_INFO "cryptor: Starting Crypto-module as LKM.\n");
 
-	// Try to get the major number dynamically if possible.
+	// Register a character device and try to get a major number dynamically if possible.
 	majorNum = register_chrdev(0, DEVICE_NAME, &fops);
 	if (majorNum < 0) {
 		printk(KERN_ALERT
 		       "cryptor: Could not register a major number!\n");
-		return majorNum;
+		return PTR_ERR(&majorNum);
 	}
 	printk(KERN_INFO "cryptor: Registered with major number %d.\n",
 	       majorNum);
 
-	// Register the device class.
+	// Create a struct class structure which will be used in creating the device.
 	cryClass = class_create(THIS_MODULE, CLASS_NAME);
 	if (IS_ERR(cryClass)) {
+                // Unregister the character device as we could not create the device class.
 		unregister_chrdev(majorNum, DEVICE_NAME);
 		printk(KERN_ALERT
 		       "cryptor: Could not register the device class!\n");
-		return PTR_ERR(cryDevice);
+		return PTR_ERR(cryClass);
 	}
 	printk(KERN_INFO "cryptor: Registered the device class.\n");
 
-	// Register the device driver.
+	// Create a device and register it with sysfs.
 	cryDevice =
 	    device_create(cryClass, NULL, MKDEV(majorNum, 0), NULL,
 			  DEVICE_NAME);
 	if (IS_ERR(cryDevice)) {
+                // Destroy the class and unregister the character device as we could not create the device driver.
 		class_destroy(cryClass);
 		unregister_chrdev(majorNum, DEVICE_NAME);
 		printk(KERN_ALERT "cryptor: Could not create the device.\n");
@@ -102,18 +116,20 @@ static int __init cry_init(void)
 	return 0;
 }
 
-// Function which will be executed on module cleanup time.
+// This function which will be executed on the module cleanup time.
 static void __exit cry_exit(void)
 {
+        // Destroy the device, destroy the class and unregister the character device.
 	device_destroy(cryClass, MKDEV(majorNum, 0));
 	class_destroy(cryClass);
 	unregister_chrdev(majorNum, DEVICE_NAME);
 	printk(KERN_INFO "cryptor: LKM unloaded successfully.\n");
 }
 
-// Function which will be executed on device open.
+// This is called when the user tries to open the character device file.
 static int cry_open(struct inode *inodep, struct file *filep)
 {
+        // If there is no encryption key, return an invalid argument error.
 	if (encryptionKey == NULL) {
 		printk(KERN_NOTICE
 		       "cryptor: User tried to use the device when there was no encryption key present.");
@@ -123,11 +139,13 @@ static int cry_open(struct inode *inodep, struct file *filep)
 	return 0;
 }
 
-// Function which will be used when data is read from the character device.
+// This is called when a process that has opened the character device file tries to read from it.
 static ssize_t
 cry_read(struct file *filep, char *buffer, size_t len, loff_t * offset)
 {
 	int errorCount = 0;
+        // Copy the saved message from the global variable to user space.
+        // If there were any errors, return an I/O Error.
 	errorCount = copy_to_user(buffer, msg, msgSize);
 	if (errorCount == 0) {
 		printk(KERN_INFO "cryptor: Sent %d characters to user.\n",
@@ -142,14 +160,11 @@ cry_read(struct file *filep, char *buffer, size_t len, loff_t * offset)
 	}
 }
 
-// Function which will be used when data is written to the character device.
-// filep is a pointer to a file object.
-// buffer is a pointer to the string which is to be written.
-// len is length of the string buffer.
+// This is called when a process that has opened the character device file tries to write to it.
 static ssize_t
 cry_write(struct file *filep, const char *buffer, size_t len, loff_t * offset)
 {
-	// Write characters in buffer to the message.
+	// Write characters in input buffer to the message.
 	sprintf(msg, "%s", buffer);
 	msgSize = strlen(msg);
 	printk(KERN_INFO "cryptor: Received %d characters to device!\n",
@@ -158,16 +173,19 @@ cry_write(struct file *filep, const char *buffer, size_t len, loff_t * offset)
 	// Lets encrypt/decrypt the message.
 	printk(KERN_INFO "cryptor: Encrypting/decrypting the message.");
 	rc4(encryptionKey, msg);
-
+        // Return the amount of characters that were encrypted/decrypted.
 	return msgSize;
 }
 
+// This is called when a process tries to do an ioctl call to the character device file.
 static long
 cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 {
 	int ret_val = 0;
+        // Find out if the user wants to set or get the encryption key.
 	switch (ioctl_cmd) {
 	case IOCTL_SET_KEY:
+                // Copy data from user space to the encryption key variable (Kernel space).
 		ret_val =
 		    copy_from_user(encryptionKey, (char *)arg,
 				   sizeof(encryptionKey));
@@ -175,6 +193,7 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 		       "cryptor: User changed encryption key via IOCTL.\n");
 		break;
 	case IOCTL_GET_KEY:
+                // Copy data from the encryption key variable (Kernel space) to user space.
 		ret_val =
 		    copy_to_user((char *)arg, encryptionKey,
 				 sizeof(encryptionKey));
@@ -182,6 +201,7 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 		       "cryptor: Encryption key sent to user via IOCTL.\n");
 		break;
 	default:
+                // If invalid ioctl call is given, log the operation and return.
 		printk(KERN_WARNING
 		       "cryptor: Received invalid IOCTL call (%d).\n",
 		       ioctl_cmd);
@@ -190,16 +210,14 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 	return ret_val;
 }
 
-// Function which will be used when the device is closed by the userspace user.
-// inodep is a pointer to an inode object (see linux/fs.h).
-// filep is a pointer to a file objec (see linux/fs.h).
+// This is called when a process closes the character device file.
 static int cry_release(struct inode *inodep, struct file *filep)
 {
 	printk(KERN_INFO "cryptor: Device closed succesfully.\n");
 	return 0;
 }
 
-// Specify module initialization and cleanup functions.
+// Specify functions which will be called when the module is loaded and unloaded..
 module_init(cry_init);
 module_exit(cry_exit);
 
