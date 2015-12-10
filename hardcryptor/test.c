@@ -8,6 +8,7 @@
 #define IOCTL_SET_KEY 0
 #define IOCTL_GET_KEY 1
 #define IOCTL_INVALID_CALL 6
+#define OLDKEY "thisIsOld"
 #define NEWKEY "newKeyHere"
 
 static void
@@ -31,6 +32,8 @@ int main()
 		perror("Could not open the device!");
 		return errno;
 	}
+
+	ioctl(fd, IOCTL_SET_KEY, OLDKEY);
 
 	printf("\nString that will be encrypted&decrypted: ");
 	scanf("%[^\n]%*c", msg);
@@ -81,7 +84,6 @@ int main()
 	ioctl(fd, IOCTL_GET_KEY, buf);
 	printf("Current encryption key: %s\n", buf);
 	printf("Setting new encryption key via IOCTL.\n");
-	ioctl(fd, IOCTL_SET_KEY, NEWKEY);
 	ioctl(fd, IOCTL_GET_KEY, buf);
 	printf("Current encryption key: %s\n\n", buf);
 

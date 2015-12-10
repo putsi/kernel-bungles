@@ -8,9 +8,8 @@ clean:
 	rm test
 
 install:
-	@read -p "Enter initial encryption key: " encKey; \
 	cp 99-hardcryptor.rules /etc/udev/rules.d/99-hardcryptor.rules; \
-	insmod hardcryptor.ko encryptionKey=$$encKey; \
+	insmod hardcryptor.ko; \
         depmod -a; \
         udevadm control --reload-rules; \
         service udev restart; \

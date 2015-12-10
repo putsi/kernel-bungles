@@ -29,12 +29,8 @@ MODULE_VERSION("1.2");
 #define IOCTL_SET_KEY 0
 #define IOCTL_GET_KEY 1
 
+/* Encryption-key will be stored here. */
 static char *encryptionKey;
-/* Encryption key is char pointer (charp) that can be read and write by root (S_IRWXU). */
-module_param(encryptionKey, charp, S_IRWXU);
-/* Encryption key parameter description for the module. */
-MODULE_PARM_DESC(encryptionKey,
-		 "Encryption key that will be used in cryptography operations.");
 
 /* Device major number maps the device file to the corresponding driver. */
 static int majorNum;
@@ -129,12 +125,6 @@ static void __exit cry_exit(void)
 /* This is called when the user tries to open the character device file. */
 static int cry_open(struct inode *inodep, struct file *filep)
 {
-	/* If there is no encryption key, return an invalid argument error. */
-	if (encryptionKey == NULL) {
-		printk(KERN_NOTICE
-		       "hardcryptor: User tried to use the device when there was no encryption key present.");
-		return -EINVAL;
-	}
 	printk(KERN_INFO "hardcryptor: User opened the device.\n");
 	return 0;
 }
@@ -164,6 +154,13 @@ cry_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 static ssize_t
 cry_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 {
+	/* If there is no encryption key, return an invalid argument error. */
+	if (encryptionKey == NULL) {
+		printk(KERN_NOTICE
+		       "hardcryptor: User tried to write in the device when there was no encryption key present.");
+		return -EINVAL;
+	}
+
 	/* Write characters in input buffer to the message. */
 	sprintf(msg, "%s", buffer);
 	msgSize = strlen(msg);

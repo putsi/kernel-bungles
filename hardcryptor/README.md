@@ -4,6 +4,7 @@ Note: This is a hardened version of the [cryptor-module](https://github.com/puts
 
 Following vulnerabilities have been fixed in this version:
  * UDEV rules modified so that only members of group "crypto" can use the device.
+ * The encryption key module parameter was removed as it is shown as cleartext when used.
 
 ## Installing
 ```
