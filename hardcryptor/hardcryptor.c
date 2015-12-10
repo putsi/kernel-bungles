@@ -32,7 +32,7 @@ MODULE_VERSION("1.2");
 #define IOCTL_GET_KEY 1
 
 /* Encryption-key will be stored here. */
-static char encryptionKey[KEY_MAX_SIZE];
+static char encryptionKey[KEY_MAX_SIZE] = { 0 };
 
 /* Device major number maps the device file to the corresponding driver. */
 static int majorNum;
@@ -70,6 +70,9 @@ static struct file_operations fops = {
 
 /* Function prototype for the rc4 based encryption. */
 void rc4(unsigned char *key, unsigned char *msg);
+
+/* Function prototype for function that safely clears any buffers. */
+void clear_buffer(unsigned char *buf, int bufsize);
 
 /* This function will be executed at module initialization time. */
 static int __init cry_init(void)
@@ -139,6 +142,10 @@ cry_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 	/* Copy the saved message from the global variable to user space. */
 	/* If there were any errors, return an I/O Error. */
 	errorCount = copy_to_user(buffer, msg, msgSize);
+
+	/* Avoid possible information leaks by clearing the buffer. */
+	clear_buffer(msg, MESSAGE_MAX_SIZE);
+
 	if (errorCount == 0) {
 		printk(KERN_INFO "hardcryptor: Sent %d characters to user.\n",
 		       msgSize);
@@ -172,6 +179,7 @@ cry_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 	/* Lets encrypt/decrypt the message. */
 	printk(KERN_INFO "hardcryptor: Encrypting/decrypting the message.");
 	rc4(encryptionKey, msg);
+
 	/* Return the amount of characters that were encrypted/decrypted. */
 	return msgSize;
 }
@@ -189,6 +197,10 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
                         ret_val = -EINVAL;
 			break;
 		}
+
+		/* Avoid possible information leaks by clearing the buffer. */
+		clear_buffer(msg, MESSAGE_MAX_SIZE);
+
 		/* Copy data from user space to the encryption key variable (Kernel space). */
 		ret_val =
 		    copy_from_user(encryptionKey, (char *)arg, KEY_MAX_SIZE);
@@ -221,6 +233,10 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 /* This is called when a process closes the character device file. */
 static int cry_release(struct inode *inodep, struct file *filep)
 {
+	/* Avoid possible information leaks by clearing the buffer. */
+        clear_buffer(msg, MESSAGE_MAX_SIZE);
+        clear_buffer(encryptionKey, KEY_MAX_SIZE);
+
 	printk(KERN_INFO "hardcryptor: Device closed succesfully.\n");
 	return 0;
 }
@@ -228,6 +244,13 @@ static int cry_release(struct inode *inodep, struct file *filep)
 /* Specify functions which will be called when the module is loaded and unloaded.. */
 module_init(cry_init);
 module_exit(cry_exit);
+
+void clear_buffer(unsigned char *buf, int bufsize) {
+	int i;
+	for(i = 0; i < bufsize; i++) {
+		buf[i] = 0;
+	}
+}
 
 /*
     Following public domain RC4-implementation is from
