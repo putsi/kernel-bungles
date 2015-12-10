@@ -8,6 +8,8 @@
 #include <linux/device.h>
 /* File structure headers, needed for defining and creating a character device. */
 #include <linux/fs.h>
+/* Mutex-headers, needed for removing possibility for a race condition. */
+#include <linux/mutex.h>
 /* Uaccess-headers, needed for copying data between user space and Kernel space. */
 #include <asm/uaccess.h>
 
@@ -67,6 +69,11 @@ static struct file_operations fops = {
 	.release = cry_release,
 	.unlocked_ioctl = cry_ioctl,
 };
+
+/* Declare a mutex for making sure that multiple users don't use the device at same time. */
+static DEFINE_MUTEX(cry_device_lock);
+/* Declare a mutex for making sure that that writing and reading doesn't occur at same time. */
+static DEFINE_MUTEX(cry_readwrite_lock);
 
 /* Function prototype for the rc4 based encryption. */
 void rc4(unsigned char *key, unsigned char *msg);
@@ -130,6 +137,7 @@ static void __exit cry_exit(void)
 /* This is called when the user tries to open the character device file. */
 static int cry_open(struct inode *inodep, struct file *filep)
 {
+	mutex_lock(&cry_device_lock);
 	printk(KERN_INFO "hardcryptor: User opened the device.\n");
 	return 0;
 }
@@ -139,6 +147,7 @@ static ssize_t
 cry_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
 	int errorCount = 0;
+
 	/* Copy the saved message from the global variable to user space. */
 	/* If there were any errors, return an I/O Error. */
 	errorCount = copy_to_user(buffer, msg, msgSize);
@@ -237,6 +246,7 @@ static int cry_release(struct inode *inodep, struct file *filep)
         clear_buffer(msg, MESSAGE_MAX_SIZE);
         clear_buffer(encryptionKey, KEY_MAX_SIZE);
 
+	mutex_unlock(&cry_device_lock);
 	printk(KERN_INFO "hardcryptor: Device closed succesfully.\n");
 	return 0;
 }

@@ -8,6 +8,7 @@ Following vulnerabilities have been fixed in this version:
  * Improper handling of encryption key was fixed and error handling was added for cases where the key has not been set.
  * To avoid information leaks, message buffer is filled with zeroes after it is read or when the device is released.
  * To avoid information leaks, encryption key buffer is filled with zeroes after the device is released.
+ * Added mutex so that no race conditions will happen when multiple users try to use the device at the same time.
 
 ## Installing
 ```
