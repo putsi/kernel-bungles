@@ -27,6 +27,7 @@ int main()
 	char msg[BUFFER_LEN];
 	char enc[BUFFER_LEN];
 	char dec[BUFFER_LEN];
+	char buf[BUFFER_LEN];
 	fd = open("/dev/hcry", O_RDWR);
 	if (fd < 0) {
 		perror("Could not open the device!");
@@ -34,6 +35,8 @@ int main()
 	}
 
 	ioctl(fd, IOCTL_SET_KEY, OLDKEY);
+	ioctl(fd, IOCTL_GET_KEY, buf);
+	printf("Current encryption key: %s\n\n", buf);
 
 	printf("\nString that will be encrypted&decrypted: ");
 	scanf("%[^\n]%*c", msg);
@@ -80,10 +83,10 @@ int main()
 	printf("%s <-- Decrypted message\n", dec);
 	printf("\n");
 
-	char buf[BUFFER_LEN];
 	ioctl(fd, IOCTL_GET_KEY, buf);
 	printf("Current encryption key: %s\n", buf);
 	printf("Setting new encryption key via IOCTL.\n");
+	ioctl(fd, IOCTL_SET_KEY, NEWKEY);
 	ioctl(fd, IOCTL_GET_KEY, buf);
 	printf("Current encryption key: %s\n\n", buf);
 

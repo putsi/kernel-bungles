@@ -20,6 +20,8 @@ MODULE_VERSION("1.2");
 
 /* Maximum size of message in a single write- or read-operation. */
 #define MESSAGE_MAX_SIZE 1024
+/* Maximum length for the encryption key. */
+#define KEY_MAX_SIZE 1024
 /* Device name which will be used in the file system (/dev/hcry). */
 #define DEVICE_NAME "hcry"
 /* Class name defines which class the module is specific to. */
@@ -30,7 +32,7 @@ MODULE_VERSION("1.2");
 #define IOCTL_GET_KEY 1
 
 /* Encryption-key will be stored here. */
-static char *encryptionKey;
+static char encryptionKey[KEY_MAX_SIZE];
 
 /* Device major number maps the device file to the corresponding driver. */
 static int majorNum;
@@ -155,7 +157,7 @@ static ssize_t
 cry_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 {
 	/* If there is no encryption key, return an invalid argument error. */
-	if (encryptionKey == NULL) {
+	if (strlen(encryptionKey) == 0) {
 		printk(KERN_NOTICE
 		       "hardcryptor: User tried to write in the device when there was no encryption key present.");
 		return -EINVAL;
@@ -182,14 +184,23 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 	/* Find out if the user wants to set or get the encryption key. */
 	switch (ioctl_cmd) {
 	case IOCTL_SET_KEY:
+		if (strlen((char *)arg) > KEY_MAX_SIZE) {
+			printk(KERN_ALERT "hardcryptor: User tried to enter too long encryption key.\n");
+                        ret_val = -EINVAL;
+			break;
+		}
 		/* Copy data from user space to the encryption key variable (Kernel space). */
 		ret_val =
-		    copy_from_user(encryptionKey, (char *)arg,
-				   sizeof(encryptionKey));
+		    copy_from_user(encryptionKey, (char *)arg, KEY_MAX_SIZE);
 		printk(KERN_INFO
 		       "hardcryptor: User changed encryption key via IOCTL.\n");
 		break;
 	case IOCTL_GET_KEY:
+		if (strlen(encryptionKey) == 0) {
+			printk(KERN_INFO "hardcryptor: User tried to get encryption key when none was set.\n");
+			ret_val = -EINVAL;
+			break;
+		}
 		/* Copy data from the encryption key variable (Kernel space) to user space. */
 		ret_val =
 		    copy_to_user((char *)arg, encryptionKey,
