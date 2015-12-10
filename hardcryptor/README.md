@@ -3,7 +3,7 @@
 Note: This is a hardened version of the [cryptor-module](https://github.com/putsi/kernel-bungles/tree/master/cryptor).
 
 Following vulnerabilities have been fixed in this version:
- * TODO
+ * UDEV rules modified so that only members of group "crypto" can use the device.
 
 ## Installing
 ```

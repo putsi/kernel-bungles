@@ -11,7 +11,11 @@ install:
 	@read -p "Enter initial encryption key: " encKey; \
 	cp 99-hardcryptor.rules /etc/udev/rules.d/99-hardcryptor.rules; \
 	insmod hardcryptor.ko encryptionKey=$$encKey; \
-        depmod -a
+        depmod -a; \
+        udevadm control --reload-rules; \
+        service udev restart; \
+        udevadm trigger; \
+
 uninstall:
 	rmmod hardcryptor
 	rm /etc/udev/rules.d/99-hardcryptor.rules

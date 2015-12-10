@@ -1,2 +1,2 @@
 # UDEV rules for hardcryptor character device driver.
-KERNEL=="hardcryptor", SUBSYSTEM=="hcry", MODE="0666"
+SUBSYSTEM=="hardcryptor", MODE="0660", GROUP="crypto"
