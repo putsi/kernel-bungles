@@ -180,7 +180,7 @@ cry_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 	}
 
 	/* Write characters in input buffer to the message. */
-	sprintf(msg, "%s", buffer);
+	snprintf(msg, MESSAGE_MAX_SIZE+1, "%s", buffer);
 	msgSize = strlen(msg);
 	printk(KERN_INFO "hardcryptor: Received %d characters to device!\n",
 	       msgSize);
