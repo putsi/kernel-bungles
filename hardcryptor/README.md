@@ -14,6 +14,8 @@ Following security fixes have been implemented in this version:
  * Only alphanumeric, whitespace and punctuation characters are allowed in the encryption key.
  * Added null check and minimum length check for the ioctl-call which sets encryption key. 
 
+[Source code modifications related to the fixes](https://github.com/putsi/kernel-bungles/compare/9b73cfd9acf5f02b7afeb66b70a06c26681d38d2...master) 
+
 ## Installing
 ```
 sudo -s
