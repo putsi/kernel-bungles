@@ -9,6 +9,7 @@ Following security fixes have been implemented in this version:
  * To avoid information leaks, message buffer is filled with zeroes after it is read or when the device is released.
  * To avoid information leaks, encryption key buffer is filled with zeroes after the device is released.
  * Added mutex so that no race conditions will happen when multiple users try to use the device at the same time.
+ * Added mutex so that no race conditions will happen when user tries to read, write, set ioctl-key and get ioctl-key at the same time.
  * Replaced sprintf with snprintf so that no overflow will occur when user writes too long message.
  * Only alphanumeric, whitespace and punctuation characters are allowed in the encryption key.
  * Added null check and minimum length check for the ioctl-call which sets encryption key. 

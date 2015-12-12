@@ -76,6 +76,8 @@ static struct file_operations fops = {
 static DEFINE_MUTEX(cry_device_lock);
 /* Declare a mutex for making sure that that writing and reading doesn't occur at same time. */
 static DEFINE_MUTEX(cry_readwrite_lock);
+/* Declare a mutex for making sure that at any time, only one operation can be running. */
+static DEFINE_MUTEX(cry_operation_lock);
 
 /* Function prototype for the rc4 based encryption. */
 void rc4(unsigned char *key, unsigned char *msg);
@@ -149,6 +151,7 @@ static ssize_t
 cry_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
 	int errorCount = 0;
+	mutex_lock(&cry_operation_lock);
 
 	/* Copy the saved message from the global variable to user space. */
 	/* If there were any errors, return an I/O Error. */
@@ -161,11 +164,13 @@ cry_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 		printk(KERN_INFO "hardcryptor: Sent %d characters to user.\n",
 		       msgSize);
 		msgSize = 0;
+		mutex_unlock(&cry_operation_lock);
 		return (0);
 	} else {
 		printk(KERN_ALERT
 		       "hardcryptor: Could not send %d characters to user!\n",
 		       msgSize);
+		mutex_unlock(&cry_operation_lock);
 		return -EIO;
 	}
 }
@@ -174,10 +179,13 @@ cry_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 static ssize_t
 cry_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 {
+	mutex_lock(&cry_operation_lock);
+
 	/* If there is no encryption key, return an invalid argument error. */
 	if (strlen(encryptionKey) == 0) {
 		printk(KERN_NOTICE
 		       "hardcryptor: User tried to write in the device when there was no encryption key present.\n");
+		mutex_unlock(&cry_operation_lock);
 		return -EINVAL;
 	}
 
@@ -191,6 +199,8 @@ cry_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 	printk(KERN_INFO "hardcryptor: Encrypting/decrypting the message.\n");
 	rc4(encryptionKey, msg);
 
+	mutex_unlock(&cry_operation_lock);
+
 	/* Return the amount of characters that were encrypted/decrypted. */
 	return msgSize;
 }
@@ -202,6 +212,7 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 	int ret_val = 0;
 	int i = 0;
         char buf[KEY_MAX_SIZE];
+	mutex_lock(&cry_operation_lock);
 
 	/* Find out if the user wants to set or get the encryption key. */
 	switch (ioctl_cmd) {
@@ -232,6 +243,7 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 				continue;
 			}
 			printk(KERN_INFO "hardcryptor: User tried to set invalid encryption key to the device.\n");
+			mutex_unlock(&cry_operation_lock);
 			return -EPERM;
 		}
 
@@ -265,6 +277,8 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 		       ioctl_cmd);
 		break;
 	}
+
+	mutex_unlock(&cry_operation_lock);
 	return ret_val;
 }
 
