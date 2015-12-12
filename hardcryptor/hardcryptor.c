@@ -1,7 +1,5 @@
 /* Kernel headers, needed for e.g. KERN_ALERT. */
 #include <linux/kernel.h>
-/* Type definitions, needed for e.g. ssize_t. */
-#include <linux/types.h>
 /* Module headers, needed for various Kernel module-specific functions and globals. */
 #include <linux/module.h>
 /* Device headers, needed for managing a device. */
@@ -12,6 +10,8 @@
 #include <linux/mutex.h>
 /* Uaccess-headers, needed for copying data between user space and Kernel space. */
 #include <asm/uaccess.h>
+/* Include ctype headers, so that we can validate the user input. */
+#include <linux/ctype.h>
 
 /* Set the licence, author, version, and description of the module. */
 MODULE_LICENSE("GPL");
@@ -198,6 +198,9 @@ static long
 cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 {
 	int ret_val = 0;
+	int i = 0;
+        char *buf;
+
 	/* Find out if the user wants to set or get the encryption key. */
 	switch (ioctl_cmd) {
 	case IOCTL_SET_KEY:
@@ -207,12 +210,23 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 			break;
 		}
 
+		/* Make sure that user wrote only acceptable characters to the device. */
+		/* For example, any control characters are not allowed. */
+		buf = (char *)arg;
+		for (i = 0; i < strlen(buf); i++) {
+			if (isalnum(buf[i]) || isspace(buf[i]) || ispunct(buf[i])) {
+				continue;
+			}
+			printk(KERN_INFO "hardcryptor: User tried to set invalid encryption key to the device.");
+			return -EPERM;
+		}
+
 		/* Avoid possible information leaks by clearing the buffer. */
 		clear_buffer(msg, MESSAGE_MAX_SIZE);
 
 		/* Copy data from user space to the encryption key variable (Kernel space). */
 		ret_val =
-		    copy_from_user(encryptionKey, (char *)arg, KEY_MAX_SIZE);
+		    copy_from_user(encryptionKey, buf, KEY_MAX_SIZE);
 		printk(KERN_INFO
 		       "hardcryptor: User changed encryption key via IOCTL.\n");
 		break;
@@ -231,6 +245,7 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 		break;
 	default:
 		/* If invalid ioctl call is given, log the operation and return. */
+		ret_val = -EPERM;
 		printk(KERN_WARNING
 		       "hardcryptor: Received invalid IOCTL call (%d).\n",
 		       ioctl_cmd);

@@ -2,7 +2,7 @@
 
 Note: This is a hardened version of the [cryptor-module](https://github.com/putsi/kernel-bungles/tree/master/cryptor).
 
-Following vulnerabilities have been fixed in this version:
+Following security fixes have been implemented in this version:
  * UDEV rules modified so that only members of group "crypto" can use the device.
  * The encryption key module parameter was removed as it is shown as cleartext when used.
  * Improper handling of encryption key was fixed and error handling was added for cases where the key has not been set.
@@ -10,6 +10,7 @@ Following vulnerabilities have been fixed in this version:
  * To avoid information leaks, encryption key buffer is filled with zeroes after the device is released.
  * Added mutex so that no race conditions will happen when multiple users try to use the device at the same time.
  * Replaced sprintf with snprintf so that no overflow will occur when user writes too long message.
+ * Only alphanumeric, whitespace and punctuation characters are allowed in the encryption key.
 
 ## Installing
 ```
