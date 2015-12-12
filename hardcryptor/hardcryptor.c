@@ -243,8 +243,8 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 				continue;
 			}
 			printk(KERN_INFO "hardcryptor: User tried to set invalid encryption key to the device.\n");
-			mutex_unlock(&cry_operation_lock);
-			return -EPERM;
+			ret_val = -EPERM;
+			break;
 		}
 
 		/* Avoid possible information leaks by clearing the message buffer. */
