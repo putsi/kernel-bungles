@@ -22,6 +22,8 @@ MODULE_VERSION("1.2");
 
 /* Maximum size of message in a single write- or read-operation. */
 #define MESSAGE_MAX_SIZE 1024
+/* Minimum length for the encryption key. */
+#define KEY_MIN_SIZE 16
 /* Maximum length for the encryption key. */
 #define KEY_MAX_SIZE 1024
 /* Device name which will be used in the file system (/dev/hcry). */
@@ -175,7 +177,7 @@ cry_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 	/* If there is no encryption key, return an invalid argument error. */
 	if (strlen(encryptionKey) == 0) {
 		printk(KERN_NOTICE
-		       "hardcryptor: User tried to write in the device when there was no encryption key present.");
+		       "hardcryptor: User tried to write in the device when there was no encryption key present.\n");
 		return -EINVAL;
 	}
 
@@ -186,7 +188,7 @@ cry_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 	       msgSize);
 
 	/* Lets encrypt/decrypt the message. */
-	printk(KERN_INFO "hardcryptor: Encrypting/decrypting the message.");
+	printk(KERN_INFO "hardcryptor: Encrypting/decrypting the message.\n");
 	rc4(encryptionKey, msg);
 
 	/* Return the amount of characters that were encrypted/decrypted. */
@@ -199,12 +201,25 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 {
 	int ret_val = 0;
 	int i = 0;
-        char *buf;
+        char buf[KEY_MAX_SIZE];
 
 	/* Find out if the user wants to set or get the encryption key. */
 	switch (ioctl_cmd) {
 	case IOCTL_SET_KEY:
-		if (strlen((char *)arg) > KEY_MAX_SIZE) {
+		/* Make sure that the encryption key is properly sized and formatted. */
+		ret_val =
+		    copy_from_user(buf, (char *)arg, KEY_MAX_SIZE);
+		if (ret_val > 0) {
+			printk(KERN_INFO "hardcryptor: Could not parse encryption key sent by the user.\n");
+			ret_val = -EINVAL;
+			break;
+		}
+		if (strlen(buf) < KEY_MIN_SIZE) {
+			printk(KERN_ALERT "hardcryptor: User tried to enter too short encryption key.\n");
+                        ret_val = -EINVAL;
+			break;
+		}
+		if (strlen(buf) > KEY_MAX_SIZE) {
 			printk(KERN_ALERT "hardcryptor: User tried to enter too long encryption key.\n");
                         ret_val = -EINVAL;
 			break;
@@ -212,21 +227,20 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 
 		/* Make sure that user wrote only acceptable characters to the device. */
 		/* For example, any control characters are not allowed. */
-		buf = (char *)arg;
 		for (i = 0; i < strlen(buf); i++) {
 			if (isalnum(buf[i]) || isspace(buf[i]) || ispunct(buf[i])) {
 				continue;
 			}
-			printk(KERN_INFO "hardcryptor: User tried to set invalid encryption key to the device.");
+			printk(KERN_INFO "hardcryptor: User tried to set invalid encryption key to the device.\n");
 			return -EPERM;
 		}
 
-		/* Avoid possible information leaks by clearing the buffer. */
+		/* Avoid possible information leaks by clearing the message buffer. */
 		clear_buffer(msg, MESSAGE_MAX_SIZE);
 
-		/* Copy data from user space to the encryption key variable (Kernel space). */
-		ret_val =
-		    copy_from_user(encryptionKey, buf, KEY_MAX_SIZE);
+		/* Finally, replace the old encryption key with the new one. */
+		strncpy(encryptionKey, buf, KEY_MAX_SIZE);
+
 		printk(KERN_INFO
 		       "hardcryptor: User changed encryption key via IOCTL.\n");
 		break;

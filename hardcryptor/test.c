@@ -8,8 +8,8 @@
 #define IOCTL_SET_KEY 0
 #define IOCTL_GET_KEY 1
 #define IOCTL_INVALID_CALL 6
-#define OLDKEY "thisIsOld"
-#define NEWKEY "newKeyHere"
+#define OLDKEY "thisIsOldKeyAndNowLongEnough"
+#define NEWKEY "newKeyHereAndThisIsAlsoLongEnough"
 
 static void
 print_buf(const unsigned char *buf, size_t buf_len, const char *footer)
