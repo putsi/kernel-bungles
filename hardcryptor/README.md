@@ -13,6 +13,7 @@ Following security fixes have been implemented in this version:
  * Replaced sprintf with snprintf so that no overflow will occur when user writes too long message.
  * Only alphanumeric, whitespace and punctuation characters are allowed in the encryption key.
  * Added null check and minimum length check for the ioctl-call which sets encryption key. 
+ * Will now use the length-parameter on read/write-operations if given and if smaller than max size.
 
 [Source code modifications related to the fixes](https://github.com/putsi/kernel-bungles/compare/b9485978ae17d0b55f2403e48cb757331a2985ce...master).
 

@@ -53,14 +53,14 @@ int main()
 		return errno;
 	}
 
-	ret = read(fd, enc, BUFFER_LEN);
+	ret = read(fd, enc, msgLen);
 	if (ret < 0) {
 		perror("Could not read the binary from the device!");
 		close(fd);
 		return errno;
 	}
 
-	ret = write(fd, enc, msgLen);
+	ret = write(fd, enc, 2);
 	if (ret < 0) {
 		perror("Could not send the string to the device!");
 		close(fd);

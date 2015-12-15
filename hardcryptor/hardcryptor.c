@@ -151,25 +151,31 @@ static ssize_t
 cry_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 {
 	int errorCount = 0;
+	int charcount = msgSize;
 	mutex_lock(&cry_operation_lock);
+
+	/* If length is specified and it is shorter than message size, use it. */
+	if (len > 0 && len < msgSize) {
+		charcount = len;
+	}
 
 	/* Copy the saved message from the global variable to user space. */
 	/* If there were any errors, return an I/O Error. */
-	errorCount = copy_to_user(buffer, msg, msgSize);
+	errorCount = copy_to_user(buffer, msg, charcount);
 
 	/* Avoid possible information leaks by clearing the buffer. */
 	clear_buffer(msg, MESSAGE_MAX_SIZE);
 
 	if (errorCount == 0) {
 		printk(KERN_INFO "hardcryptor: Sent %d characters to user.\n",
-		       msgSize);
+		       charcount);
 		msgSize = 0;
 		mutex_unlock(&cry_operation_lock);
-		return (0);
+		return charcount;
 	} else {
 		printk(KERN_ALERT
 		       "hardcryptor: Could not send %d characters to user!\n",
-		       msgSize);
+		       charcount);
 		mutex_unlock(&cry_operation_lock);
 		return -EIO;
 	}
@@ -179,6 +185,7 @@ cry_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 static ssize_t
 cry_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 {
+	int charcount = MESSAGE_MAX_SIZE;
 	mutex_lock(&cry_operation_lock);
 
 	/* If there is no encryption key, return an invalid argument error. */
@@ -189,11 +196,16 @@ cry_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 		return -EINVAL;
 	}
 
+	/* If length is specified and it is shorter than maximum message size, use it. */
+	if (len > 0 && len < MESSAGE_MAX_SIZE) {
+		charcount = len;
+	}
+
 	/* Write characters in input buffer to the message. */
-	snprintf(msg, MESSAGE_MAX_SIZE+1, "%s", buffer);
-	msgSize = strlen(msg);
+	snprintf(msg, charcount+1, "%s", buffer);
+	msgSize = charcount;
 	printk(KERN_INFO "hardcryptor: Received %d characters to device!\n",
-	       msgSize);
+	       charcount);
 
 	/* Lets encrypt/decrypt the message. */
 	printk(KERN_INFO "hardcryptor: Encrypting/decrypting the message.\n");
@@ -202,7 +214,7 @@ cry_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 	mutex_unlock(&cry_operation_lock);
 
 	/* Return the amount of characters that were encrypted/decrypted. */
-	return msgSize;
+	return charcount;
 }
 
 /* This is called when a process tries to do an ioctl call to the character device file. */
