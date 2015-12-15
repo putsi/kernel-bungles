@@ -1,4 +1,4 @@
-# Loadable kernel module that provides [TODO]-cryptography
+# Loadable kernel module that provides RC4-cryptography
 
 Note: This is a hardened version of the [cryptor-module](https://github.com/putsi/kernel-bungles/tree/master/cryptor).
 
@@ -15,7 +15,7 @@ Following security fixes have been implemented in this version:
  * Added null check and minimum length check for the ioctl-call which sets encryption key. 
  * Will now use the length-parameter on read/write-operations if given and if smaller than max size.
 
-[Source code modifications related to the fixes](https://github.com/putsi/kernel-bungles/compare/b9485978ae17d0b55f2403e48cb757331a2985ce...master).
+[Source code modifications related to the fixes](https://github.com/putsi/kernel-bungles/compare/29421c2fb418d9761c200f15f0e9f94d8902d85f...master).
 
 ## Installing
 ```
