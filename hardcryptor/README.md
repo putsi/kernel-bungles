@@ -1,8 +1,8 @@
 # Loadable kernel module that provides RC4-cryptography
 
-Note: This is a hardened version of the [cryptor-module](https://github.com/putsi/kernel-bungles/tree/master/cryptor).
+#### Note: This is a hardened version of the [cryptor-module](https://github.com/putsi/kernel-bungles/tree/master/cryptor).
 
-Following security fixes have been implemented in this version:
+##### Following security fixes have been implemented in this version:
  * UDEV rules modified so that only members of group "crypto" can use the device.
  * The encryption key module parameter was removed as it is shown as cleartext when used.
  * Improper handling of encryption key was fixed and error handling was added for cases where the key has not been set.
@@ -15,7 +15,7 @@ Following security fixes have been implemented in this version:
  * Added null check and minimum length check for the ioctl-call which sets encryption key. 
  * Will now use the length-parameter on read/write-operations if given and if smaller than max size.
 
-[Source code modifications related to the fixes](https://github.com/putsi/kernel-bungles/compare/29421c2fb418d9761c200f15f0e9f94d8902d85f...master).
+#### [Source code modifications related to the fixes can be seen here](https://github.com/putsi/kernel-bungles/compare/29421c2fb418d9761c200f15f0e9f94d8902d85f...master).
 
 ## Installing
 ```
