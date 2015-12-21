@@ -30,7 +30,7 @@ make && make install
 Module creates a character device to /dev/cry, which encrypts or decrypts any data written into it.
 Encryption key can be changed with IOCTL-call 0 and retrieved with IOCTL-call 1.
 
-Usage example is provided by test-program which can be used with:
+Usage example is provided by test-program which can be used with (must be run with root-user or with user that belongs to crypto-group):
 ```
 chmod +x test
 ./test
@@ -45,4 +45,67 @@ make uninstall
 Logs can be examined for example with:
 ```
 tail -n25 /var/log/kern.log
+```
+
+## Example
+### Console input
+```
+putsi@kali:~/kernel-bungles/hardcryptor$ sudo make install
+putsi@kali:~/kernel-bungles/hardcryptor$ groups
+putsi sudo crypto
+putsi@kali:~/kernel-bungles/hardcryptor$ ./test
+Current encryption key: thisIsOldKeyAndNowLongEnough
+
+
+String that will be encrypted&decrypted: moro testiviesti
+
+6D 6F 72 6F 20 74 65 73 74 69 76 69 65 73 74 69  <-- Original  message (HEX)
+6F 2D 09 14 8D E6 05 63 E7 41 05 D7 70 DA 5D 0A  <-- Encrypted message (HEX)
+6D 6F 00 00 00 00 00 00 00 00 00 00 00 00 00 00  <-- Decrypted message (HEX)
+moro testiviesti <-- Original  message
+o-	��c�A�p�]
+ <-- Encrypted message
+mo <-- Decrypted message
+
+Current encryption key: thisIsOldKeyAndNowLongEnough
+Setting new encryption key via IOCTL.
+Current encryption key: newKeyHereAndThisIsAlsoLongEnough
+
+6D 6F 72 6F 20 74 65 73 74 69 76 69 65 73 74 69  <-- Original  message (HEX)
+87 A2 B7 4B 60 7C 2C 27 F5 9C 1B FF C3 35 68 88  <-- Encrypted message (HEX)
+6D 6F 72 6F 20 74 65 73 74 69 76 69 65 73 74 69  <-- Decrypted message (HEX)
+moro testiviesti <-- Original  message
+���K`|,'��5h� <-- Encrypted message
+moro testiviesti <-- Decrypted message
+
+putsi@kali:~/kernel-bungles/hardcryptor$ sudo make uninstall
+```
+### Kernel log
+```
+Dec 21 13:14:32 kali kernel: [ 7249.464389] hardcryptor: Starting Crypto-module as LKM.
+Dec 21 13:14:32 kali kernel: [ 7249.464392] hardcryptor: Registered with major number 250.
+Dec 21 13:14:32 kali kernel: [ 7249.464399] hardcryptor: Registered the device class.
+Dec 21 13:14:32 kali kernel: [ 7249.465679] hardcryptor: Created the device to /dev/hcry.
+Dec 21 13:15:36 kali kernel: [ 7313.531638] hardcryptor: User opened the device.
+Dec 21 13:15:36 kali kernel: [ 7313.531648] hardcryptor: User changed encryption key via IOCTL.
+Dec 21 13:15:36 kali kernel: [ 7313.531649] hardcryptor: Encryption key sent to user via IOCTL.
+Dec 21 13:15:41 kali kernel: [ 7318.289631] hardcryptor: Received 16 characters to device!
+Dec 21 13:15:41 kali kernel: [ 7318.289633] hardcryptor: Encrypting/decrypting the message.
+Dec 21 13:15:41 kali kernel: [ 7318.289639] hardcryptor: Sent 16 characters to user.
+Dec 21 13:15:41 kali kernel: [ 7318.289639] hardcryptor: Received 2 characters to device!
+Dec 21 13:15:41 kali kernel: [ 7318.289640] hardcryptor: Encrypting/decrypting the message.
+Dec 21 13:15:41 kali kernel: [ 7318.289644] hardcryptor: Sent 2 characters to user.
+Dec 21 13:15:41 kali kernel: [ 7318.289666] hardcryptor: Encryption key sent to user via IOCTL.
+Dec 21 13:15:41 kali kernel: [ 7318.289670] hardcryptor: User changed encryption key via IOCTL.
+Dec 21 13:15:41 kali kernel: [ 7318.289671] hardcryptor: Encryption key sent to user via IOCTL.
+Dec 21 13:15:41 kali kernel: [ 7318.289672] hardcryptor: Received 16 characters to device!
+Dec 21 13:15:41 kali kernel: [ 7318.289673] hardcryptor: Encrypting/decrypting the message.
+Dec 21 13:15:41 kali kernel: [ 7318.289677] hardcryptor: Sent 16 characters to user.
+Dec 21 13:15:41 kali kernel: [ 7318.289678] hardcryptor: Received 16 characters to device!
+Dec 21 13:15:41 kali kernel: [ 7318.289678] hardcryptor: Encrypting/decrypting the message.
+Dec 21 13:15:41 kali kernel: [ 7318.289682] hardcryptor: Sent 16 characters to user.
+Dec 21 13:15:41 kali kernel: [ 7318.289692] hardcryptor: Received invalid IOCTL call (6).
+Dec 21 13:15:41 kali kernel: [ 7318.289695] hardcryptor: Device closed succesfully.
+Dec 21 13:15:55 kali kernel: [ 7331.984939] hardcryptor: LKM unloaded successfully.
+
 ```
