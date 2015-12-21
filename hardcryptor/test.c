@@ -3,10 +3,16 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
+#include <linux/ioctl.h>
 
 #define BUFFER_LEN 2048
-#define IOCTL_SET_KEY 0
-#define IOCTL_GET_KEY 1
+
+/* Magic number for the ioctl calls */
+#define CRY_IOC_MAGIC 'c'
+/* IOCTL-call values used for setting and getting the encryption key. */
+#define CRY_IOC_SET_KEY _IOW(CRY_IOC_MAGIC, 1, char*)
+#define CRY_IOC_GET_KEY _IOR(CRY_IOC_MAGIC, 2, char*)
+
 #define IOCTL_INVALID_CALL 6
 #define OLDKEY "thisIsOldKeyAndNowLongEnough"
 #define NEWKEY "newKeyHereAndThisIsAlsoLongEnough"
@@ -34,8 +40,8 @@ int main()
 		return errno;
 	}
 
-	ioctl(fd, IOCTL_SET_KEY, OLDKEY);
-	ioctl(fd, IOCTL_GET_KEY, buf);
+	ioctl(fd, CRY_IOC_SET_KEY, OLDKEY);
+	ioctl(fd, CRY_IOC_GET_KEY, buf);
 	printf("Current encryption key: %s\n\n", buf);
 
 	printf("\nString that will be encrypted&decrypted: ");
@@ -83,11 +89,11 @@ int main()
 	printf("%s <-- Decrypted message\n", dec);
 	printf("\n");
 
-	ioctl(fd, IOCTL_GET_KEY, buf);
+	ioctl(fd, CRY_IOC_GET_KEY, buf);
 	printf("Current encryption key: %s\n", buf);
 	printf("Setting new encryption key via IOCTL.\n");
-	ioctl(fd, IOCTL_SET_KEY, NEWKEY);
-	ioctl(fd, IOCTL_GET_KEY, buf);
+	ioctl(fd, CRY_IOC_SET_KEY, NEWKEY);
+	ioctl(fd, CRY_IOC_GET_KEY, buf);
 	printf("Current encryption key: %s\n\n", buf);
 
 	ret = write(fd, msg, msgLen);

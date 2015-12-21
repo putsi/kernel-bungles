@@ -31,25 +31,27 @@ MODULE_VERSION("1.2");
 /* Class name defines which class the module is specific to. */
 #define CLASS_NAME "hardcryptor"
 
+/* Magic number for the ioctl calls */
+#define CRY_IOC_MAGIC 'c'
 /* IOCTL-call values used for setting and getting the encryption key. */
-#define IOCTL_SET_KEY 0
-#define IOCTL_GET_KEY 1
+#define CRY_IOC_SET_KEY _IOW(CRY_IOC_MAGIC, 1, char*)
+#define CRY_IOC_GET_KEY _IOR(CRY_IOC_MAGIC, 2, char*)
 
 /* Encryption-key will be stored here. */
 static char encryptionKey[KEY_MAX_SIZE] = { 0 };
 
 /* Device major number maps the device file to the corresponding driver. */
-static int majorNum;
+static int majorNum = -1;
 /* Initialize memory for the message. */
 static char msg[MESSAGE_MAX_SIZE] = { 0 };
 
 /* Variable for storing length of the string. */
-static short msgSize;
+static short msgSize = -1;
 
 /* The basic device class. */
-static struct class *cryClass;
+static struct class *cryClass = NULL;
 /* The basic device structure. */
-static struct device *cryDevice;
+static struct device *cryDevice = NULL;
 
 /* Open is called when the user tries to open the character device file. */
 static int cry_open(struct inode *, struct file *);
@@ -142,7 +144,7 @@ static void __exit cry_exit(void)
 static int cry_open(struct inode *inodep, struct file *filep)
 {
 	mutex_lock(&cry_device_lock);
-	printk(KERN_INFO "hardcryptor: User opened the device.\n");
+	printk(KERN_DEBUG "hardcryptor: User opened the device.\n");
 	return 0;
 }
 
@@ -167,13 +169,13 @@ cry_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
 	clear_buffer(msg, MESSAGE_MAX_SIZE);
 
 	if (errorCount == 0) {
-		printk(KERN_INFO "hardcryptor: Sent %d characters to user.\n",
+		printk(KERN_DEBUG "hardcryptor: Sent %d characters to user.\n",
 		       charcount);
 		msgSize = 0;
 		mutex_unlock(&cry_operation_lock);
 		return charcount;
 	} else {
-		printk(KERN_ALERT
+		printk(KERN_DEBUG
 		       "hardcryptor: Could not send %d characters to user!\n",
 		       charcount);
 		mutex_unlock(&cry_operation_lock);
@@ -204,11 +206,11 @@ cry_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
 	/* Write characters in input buffer to the message. */
 	snprintf(msg, charcount+1, "%s", buffer);
 	msgSize = charcount;
-	printk(KERN_INFO "hardcryptor: Received %d characters to device!\n",
+	printk(KERN_DEBUG "hardcryptor: Received %d characters to device!\n",
 	       charcount);
 
 	/* Lets encrypt/decrypt the message. */
-	printk(KERN_INFO "hardcryptor: Encrypting/decrypting the message.\n");
+	printk(KERN_DEBUG "hardcryptor: Encrypting/decrypting the message.\n");
 	rc4(encryptionKey, msg);
 
 	mutex_unlock(&cry_operation_lock);
@@ -228,22 +230,28 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 
 	/* Find out if the user wants to set or get the encryption key. */
 	switch (ioctl_cmd) {
-	case IOCTL_SET_KEY:
+	case CRY_IOC_SET_KEY:
 		/* Make sure that the encryption key is properly sized and formatted. */
+		if ((char *)arg == NULL) {
+			printk(KERN_NOTICE "hardcryptor: User didn't send encryption key along with the IOCTL-call.\n");
+			ret_val = -EINVAL;
+			break;
+		}
+
 		ret_val =
 		    copy_from_user(buf, (char *)arg, KEY_MAX_SIZE);
 		if (ret_val > 0) {
-			printk(KERN_INFO "hardcryptor: Could not parse encryption key sent by the user.\n");
+			printk(KERN_NOTICE "hardcryptor: Could not parse encryption key sent by the user.\n");
 			ret_val = -EINVAL;
 			break;
 		}
 		if (strlen(buf) < KEY_MIN_SIZE) {
-			printk(KERN_ALERT "hardcryptor: User tried to enter too short encryption key.\n");
+			printk(KERN_NOTICE "hardcryptor: User tried to enter too short encryption key.\n");
                         ret_val = -EINVAL;
 			break;
 		}
 		if (strlen(buf) > KEY_MAX_SIZE) {
-			printk(KERN_ALERT "hardcryptor: User tried to enter too long encryption key.\n");
+			printk(KERN_NOTICE "hardcryptor: User tried to enter too long encryption key.\n");
                         ret_val = -EINVAL;
 			break;
 		}
@@ -254,7 +262,7 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 			if (isalnum(buf[i]) || isspace(buf[i]) || ispunct(buf[i])) {
 				continue;
 			}
-			printk(KERN_INFO "hardcryptor: User tried to set invalid encryption key to the device.\n");
+			printk(KERN_NOTICE "hardcryptor: User tried to set invalid encryption key to the device.\n");
 			ret_val = -EPERM;
 			break;
 		}
@@ -265,12 +273,12 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 		/* Finally, replace the old encryption key with the new one. */
 		strncpy(encryptionKey, buf, KEY_MAX_SIZE);
 
-		printk(KERN_INFO
+		printk(KERN_DEBUG
 		       "hardcryptor: User changed encryption key via IOCTL.\n");
 		break;
-	case IOCTL_GET_KEY:
+	case CRY_IOC_GET_KEY:
 		if (strlen(encryptionKey) == 0) {
-			printk(KERN_INFO "hardcryptor: User tried to get encryption key when none was set.\n");
+			printk(KERN_NOTICE "hardcryptor: User tried to get encryption key when none was set.\n");
 			ret_val = -EINVAL;
 			break;
 		}
@@ -278,13 +286,13 @@ cry_ioctl(struct file *file, unsigned int ioctl_cmd, unsigned long arg)
 		ret_val =
 		    copy_to_user((char *)arg, encryptionKey,
 				 sizeof(encryptionKey));
-		printk(KERN_INFO
+		printk(KERN_DEBUG
 		       "hardcryptor: Encryption key sent to user via IOCTL.\n");
 		break;
 	default:
 		/* If invalid ioctl call is given, log the operation and return. */
 		ret_val = -EPERM;
-		printk(KERN_WARNING
+		printk(KERN_NOTICE
 		       "hardcryptor: Received invalid IOCTL call (%d).\n",
 		       ioctl_cmd);
 		break;
@@ -351,7 +359,7 @@ void rc4_generate_stream(unsigned char state[], unsigned char out[], size_t len)
 		j = (j + state[i]) % 256;
 		state[i] = state[j];
 		state[j] = t;
-		out[idx] = state[(state[i] + state[j]) % 256];
+		out[idx] = state[(state[i] + t) % 256];
 	}
 }
 
