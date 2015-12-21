@@ -14,6 +14,10 @@
  * Only alphanumeric, whitespace and punctuation characters are allowed in the encryption key.
  * Added null check and minimum length check for the ioctl-call which sets encryption key. 
  * Will now use the length-parameter on read/write-operations if given and if smaller than max size.
+ * Variables will be initialized to null when defined.
+ * Added some operation mode restrictions to IOCTL macro definitions.
+ * Added null check to logic which uses IOCTL parameter.
+ * Refactored printk error levels so that less non-debug log will be printed.
 
 #### [Source code modifications related to the fixes can be seen here](https://github.com/putsi/kernel-bungles/compare/29421c2fb418d9761c200f15f0e9f94d8902d85f...master).
 
